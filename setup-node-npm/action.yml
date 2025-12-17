@@ -1,0 +1,143 @@
+name: 'Setup Node.js with NPM Registry'
+description: 'Setup Node.js and configure .npmrc for public and private registries (GitHub Packages)'
+author: 'wistiteek'
+
+branding:
+  icon: 'package'
+  color: 'green'
+
+inputs:
+  node-version:
+    description: 'Node.js version to use'
+    required: false
+    default: '22'
+    type: string
+  npm-token:
+    description: 'NPM token for private registry authentication (required if using private registry)'
+    required: false
+    type: string
+  private-registry:
+    description: 'Private registry URL (e.g., GitHub Packages)'
+    required: false
+    default: 'https://npm.pkg.github.com/'
+    type: string
+  private-scope:
+    description: 'Scope for private packages (e.g., @wistiteek, @myorg)'
+    required: false
+    default: '@wistiteek'
+    type: string
+  public-registry:
+    description: 'Public registry URL'
+    required: false
+    default: 'https://registry.npmjs.org'
+    type: string
+  always-auth:
+    description: 'Set always-auth=true in .npmrc'
+    required: false
+    default: 'true'
+    type: boolean
+
+outputs:
+  node-version:
+    description: 'Installed Node.js version'
+    value: ${{ steps.setup-node.outputs.node-version }}
+  npm-version:
+    description: 'Installed npm version'
+    value: ${{ steps.npm-version.outputs.version }}
+  npmrc-configured:
+    description: 'Whether .npmrc was configured'
+    value: ${{ steps.configure-npmrc.outputs.configured }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      id: setup-node
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Get npm version
+      id: npm-version
+      shell: bash
+      run: |
+        NPM_VERSION=$(npm --version)
+        echo "version=$NPM_VERSION" >> $GITHUB_OUTPUT
+        echo "Node.js $(node --version)"
+        echo "npm v$NPM_VERSION"
+
+    - name: Configure .npmrc
+      id: configure-npmrc
+      shell: bash
+      env:
+        NPM_TOKEN: ${{ inputs.npm-token }}
+        PUBLIC_REGISTRY: ${{ inputs.public-registry }}
+        PRIVATE_REGISTRY: ${{ inputs.private-registry }}
+        PRIVATE_SCOPE: ${{ inputs.private-scope }}
+        ALWAYS_AUTH: ${{ inputs.always-auth }}
+      run: |
+        echo "Configuration de .npmrc..."
+
+        # Preparer le contenu du .npmrc
+        NPMRC_CONTENT=""
+
+        # Registry publique par defaut
+        NPMRC_CONTENT+="registry=$PUBLIC_REGISTRY"$'\n'
+        echo "Registry publique: $PUBLIC_REGISTRY"
+
+        # Registry privee si scope fourni
+        if [ -n "$PRIVATE_SCOPE" ]; then
+          NPMRC_CONTENT+="$PRIVATE_SCOPE:registry=$PRIVATE_REGISTRY"$'\n'
+          echo "Scope prive: $PRIVATE_SCOPE -> $PRIVATE_REGISTRY"
+
+          # Authentification pour la registry privee
+          if [ -n "$NPM_TOKEN" ]; then
+            # Retirer https: de l'URL pour le format .npmrc
+            PRIVATE_REGISTRY_URL_WITHOUT_HTTPS=$(echo "$PRIVATE_REGISTRY" | sed 's|https:||')
+
+            NPMRC_CONTENT+="${PRIVATE_REGISTRY_URL_WITHOUT_HTTPS}:_authToken=${NPM_TOKEN}"$'\n'
+
+            if [ "$ALWAYS_AUTH" = "true" ]; then
+              NPMRC_CONTENT+="always-auth=true"$'\n'
+              echo "Authentification activee (always-auth=true)"
+            fi
+
+            echo "Token configure pour $PRIVATE_REGISTRY"
+          else
+            echo "Pas de NPM_TOKEN fourni - acces a la registry privee peut echouer"
+          fi
+        else
+          echo "Pas de scope prive configure - utilisation registry publique uniquement"
+        fi
+
+        # Ecrire dans ~/.npmrc
+        echo "$NPMRC_CONTENT" > ~/.npmrc
+
+        # Ecrire egalement dans ./.npmrc (repertoire courant du projet)
+        echo "$NPMRC_CONTENT" > ./.npmrc
+
+        echo "configured=true" >> $GITHUB_OUTPUT
+
+        # Afficher la config (sans les tokens)
+        echo ""
+        echo "Configuration .npmrc (sans tokens):"
+        cat ~/.npmrc | grep -v "_authToken" || true
+
+    - name: Summary
+      shell: bash
+      run: |
+        echo "CONFIGURATION NODE.JS + NPM:"
+        echo "   - Node.js: $(node --version)"
+        echo "   - npm: v$(npm --version)"
+        echo "   - Registry publique: ${{ inputs.public-registry }}"
+        if [ -n "${{ inputs.private-scope }}" ]; then
+          echo "   - Scope prive: ${{ inputs.private-scope }}"
+          echo "   - Registry privee: ${{ inputs.private-registry }}"
+          if [ -n "${{ inputs.npm-token }}" ]; then
+            echo "   - Authentification: Configuree"
+          else
+            echo "   - Authentification: Pas de token"
+          fi
+        else
+          echo "   - Registry privee: Non configuree"
+        fi
