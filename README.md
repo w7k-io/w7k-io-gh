@@ -52,37 +52,27 @@ Calculate semantic version using GitVersion.
 
 ---
 
-### update-package-json
+### bump-version
 
-Update version field in package.json.
+Update version in package.json and/or pom.xml, then commit and push.
 
 ```yaml
-- uses: w7k-io/w7k-io-gh/update-package-json@main
+- uses: w7k-io/w7k-io-gh/gitversion@main
+  id: version
+
+- uses: w7k-io/w7k-io-gh/bump-version@main
   with:
     version: ${{ steps.version.outputs.version }}
+    token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
 | `version` | Version to set | Yes | - |
-| `working-directory` | Directory containing package.json | No | `.` |
-
----
-
-### update-pom-version
-
-Update version field in pom.xml (Maven projects).
-
-```yaml
-- uses: w7k-io/w7k-io-gh/update-pom-version@main
-  with:
-    version: ${{ steps.version.outputs.version }}
-```
-
-| Input | Description | Required | Default |
-|-------|-------------|----------|---------|
-| `version` | Version to set | Yes | - |
-| `working-directory` | Directory containing pom.xml | No | `.` |
+| `token` | GitHub token with push permissions | Yes | - |
+| `working-directory` | Directory containing version files | No | `.` |
+| `files` | `auto`, `package.json`, `pom.xml`, or `both` | No | `auto` |
+| `commit-message` | Commit message (`{version}` placeholder) | No | `chore: bump version to {version}` |
 
 ---
 

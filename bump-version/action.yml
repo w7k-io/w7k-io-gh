@@ -1,0 +1,87 @@
+name: 'Bump Version'
+description: 'Update version in package.json and/or pom.xml, then commit and push'
+
+inputs:
+  version:
+    description: 'Version to set'
+    required: true
+  token:
+    description: 'GitHub token with push permissions'
+    required: true
+  working-directory:
+    description: 'Directory containing version files'
+    required: false
+    default: '.'
+  files:
+    description: 'Files to update: auto, package.json, pom.xml, or both'
+    required: false
+    default: 'auto'
+  commit-message:
+    description: 'Commit message (use {version} as placeholder)'
+    required: false
+    default: 'chore: bump version to {version}'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Configure git
+      shell: bash
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Update version files
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        FILES="${{ inputs.files }}"
+        VERSION="${{ inputs.version }}"
+        UPDATED=""
+
+        # Auto-detect if needed
+        if [ "$FILES" == "auto" ]; then
+          FILES=""
+          [ -f "package.json" ] && FILES="package.json"
+          [ -f "pom.xml" ] && FILES="$FILES pom.xml"
+          FILES=$(echo $FILES | xargs)
+        fi
+
+        # Update package.json
+        if [[ "$FILES" == *"package.json"* ]] && [ -f "package.json" ]; then
+          npm version $VERSION --no-git-tag-version --allow-same-version
+          UPDATED="$UPDATED package.json"
+          echo "Updated package.json to $VERSION"
+        fi
+
+        # Update pom.xml
+        if [[ "$FILES" == *"pom.xml"* ]] && [ -f "pom.xml" ]; then
+          mvn versions:set -DnewVersion=$VERSION -DgenerateBackupPoms=false -q
+          UPDATED="$UPDATED pom.xml"
+          echo "Updated pom.xml to $VERSION"
+        fi
+
+        if [ -z "$UPDATED" ]; then
+          echo "No version files found to update"
+          exit 1
+        fi
+
+        echo "UPDATED_FILES=$UPDATED" >> $GITHUB_ENV
+
+    - name: Commit and push
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        MESSAGE="${{ inputs.commit-message }}"
+        MESSAGE="${MESSAGE//\{version\}/${{ inputs.version }}}"
+
+        git add package.json pom.xml 2>/dev/null || true
+
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "$MESSAGE"
+          git push
+          echo "Pushed version ${{ inputs.version }}"
+        fi
