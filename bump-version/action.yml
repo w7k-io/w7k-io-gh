@@ -38,8 +38,10 @@ runs:
         VERSION="${{ inputs.version }}"
         UPDATED=""
 
-        # Auto-detect if needed
-        if [ "$FILES" == "auto" ]; then
+        # Handle 'both' and 'auto' modes
+        if [ "$FILES" == "both" ]; then
+          FILES="package.json pom.xml"
+        elif [ "$FILES" == "auto" ]; then
           FILES=""
           [ -f "package.json" ] && FILES="package.json"
           [ -f "pom.xml" ] && FILES="$FILES pom.xml"
