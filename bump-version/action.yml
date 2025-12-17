@@ -19,7 +19,7 @@ inputs:
   commit-message:
     description: 'Commit message (use {version} as placeholder)'
     required: false
-    default: 'chore: bump version to {version}'
+    default: 'chore: bump version to {version} [skip ci]'
 
 runs:
   using: 'composite'
