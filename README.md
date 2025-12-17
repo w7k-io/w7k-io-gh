@@ -60,27 +60,25 @@ Calculate semantic version using GitVersion and optionally update package.json.
 
 ### setup-node-npm
 
-Setup Node.js and configure .npmrc for public and private registries.
+Setup Node.js and set `NPM_GITHUB_TOKEN` env var for private registry authentication.
+
+Requires a `.npmrc` in your repo with:
+```
+@w7k-io:registry=https://npm.pkg.github.com/
+//npm.pkg.github.com/:_authToken=${NPM_GITHUB_TOKEN}
+```
 
 ```yaml
 - uses: w7k-io/w7k-io-gh/setup-node-npm@main
   with:
-    node-version: '22'
     npm-token: ${{ secrets.NPM_GITHUB_TOKEN }}
-    private-scope: '@w7k-io'
 ```
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
 | `node-version` | Node.js version | No | `22` |
-| `npm-token` | NPM token for private registry | No | - |
-| `private-registry` | Private registry URL | No | `https://npm.pkg.github.com/` |
-| `private-scope` | Scope for private packages | No | `@wistiteek` |
-| `public-registry` | Public registry URL | No | `https://registry.npmjs.org` |
-| `always-auth` | Set always-auth in .npmrc | No | `true` |
+| `npm-token` | NPM token (sets `NPM_GITHUB_TOKEN` env var) | No | - |
 
 | Output | Description |
 |--------|-------------|
 | `node-version` | Installed Node.js version |
-| `npm-version` | Installed npm version |
-| `npmrc-configured` | Whether .npmrc was configured |
