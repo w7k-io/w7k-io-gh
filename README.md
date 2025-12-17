@@ -4,12 +4,12 @@ Reusable GitHub Actions for w7k-io projects.
 
 ## Available Actions
 
-### sync-lockfile
+### sync-npm-lockfile
 
 Auto-sync `package-lock.json` when `package.json` is modified in a PR (npm only).
 
 ```yaml
-- uses: w7k-io/w7k-io-gh/sync-lockfile@main
+- uses: w7k-io/w7k-io-gh/sync-npm-lockfile@main
   with:
     token: ${{ secrets.NPM_GITHUB_TOKEN }}
     # Optional:
