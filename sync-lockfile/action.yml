@@ -1,5 +1,5 @@
-name: 'Sync Lockfile'
-description: 'Auto-sync package-lock.json when package.json changes'
+name: 'Sync npm Lockfile'
+description: 'Auto-sync package-lock.json when package.json changes (npm only)'
 
 inputs:
   token:
