@@ -1,0 +1,99 @@
+name: 'Sync Lockfile'
+description: 'Auto-sync package-lock.json or yarn.lock when package.json changes'
+
+inputs:
+  token:
+    description: 'GitHub token with push permissions (PAT recommended for Dependabot PRs)'
+    required: true
+  working-directory:
+    description: 'Directory containing package.json'
+    required: false
+    default: '.'
+  package-manager:
+    description: 'Package manager to use (npm or yarn). Auto-detected if not specified.'
+    required: false
+    default: 'auto'
+  node-version:
+    description: 'Node.js version to use'
+    required: false
+    default: '22'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout PR branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
+        token: ${{ inputs.token }}
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Detect package manager
+      id: detect
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        if [ "${{ inputs.package-manager }}" != "auto" ]; then
+          echo "manager=${{ inputs.package-manager }}" >> $GITHUB_OUTPUT
+        elif [ -f "yarn.lock" ]; then
+          echo "manager=yarn" >> $GITHUB_OUTPUT
+        else
+          echo "manager=npm" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Enable Corepack for Yarn
+      if: steps.detect.outputs.manager == 'yarn'
+      shell: bash
+      run: corepack enable
+
+    - name: Check if lockfile needs update
+      id: check
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        if [ "${{ steps.detect.outputs.manager }}" == "yarn" ]; then
+          if yarn install --immutable 2>/dev/null; then
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+            echo "✅ Lockfile is already in sync"
+          else
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Lockfile needs regeneration"
+          fi
+        else
+          if npm ci 2>/dev/null; then
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+            echo "✅ Lockfile is already in sync"
+          else
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Lockfile needs regeneration"
+          fi
+        fi
+
+    - name: Regenerate lockfile (npm)
+      if: steps.check.outputs.needs_update == 'true' && steps.detect.outputs.manager == 'npm'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        rm -f package-lock.json
+        npm install --package-lock-only --ignore-scripts
+        echo "✅ package-lock.json regenerated"
+
+    - name: Regenerate lockfile (yarn)
+      if: steps.check.outputs.needs_update == 'true' && steps.detect.outputs.manager == 'yarn'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        yarn install --mode update-lockfile
+        echo "✅ yarn.lock regenerated"
+
+    - name: Commit updated lockfile
+      if: steps.check.outputs.needs_update == 'true'
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: "🔒 chore: sync lockfile"
+        file_pattern: "${{ inputs.working-directory }}/package-lock.json ${{ inputs.working-directory }}/yarn.lock"
