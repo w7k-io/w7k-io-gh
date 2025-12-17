@@ -6,7 +6,7 @@ Reusable GitHub Actions for w7k-io projects.
 
 ### sync-lockfile
 
-Auto-sync `package-lock.json` or `yarn.lock` when `package.json` is modified in a PR.
+Auto-sync `package-lock.json` when `package.json` is modified in a PR.
 
 ```yaml
 - uses: w7k-io/w7k-io-gh/sync-lockfile@main
@@ -14,7 +14,6 @@ Auto-sync `package-lock.json` or `yarn.lock` when `package.json` is modified in 
     token: ${{ secrets.NPM_GITHUB_TOKEN }}
     # Optional:
     # working-directory: src/main/ui
-    # package-manager: npm (auto-detected by default)
     # node-version: '22'
 ```
 
@@ -22,7 +21,6 @@ Auto-sync `package-lock.json` or `yarn.lock` when `package.json` is modified in 
 |-------|-------------|----------|---------|
 | `token` | GitHub token with push permissions | Yes | - |
 | `working-directory` | Directory containing package.json | No | `.` |
-| `package-manager` | `npm` or `yarn` (auto-detected) | No | `auto` |
 | `node-version` | Node.js version | No | `22` |
 
 ---
