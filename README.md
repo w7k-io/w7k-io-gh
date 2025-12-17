@@ -27,15 +27,11 @@ Auto-sync `package-lock.json` when `package.json` is modified in a PR.
 
 ### gitversion
 
-Calculate semantic version using GitVersion and optionally update package.json.
+Calculate semantic version using GitVersion.
 
 ```yaml
 - uses: w7k-io/w7k-io-gh/gitversion@main
   id: version
-  with:
-    config-file: GitVersion.yml
-    update-package-json: 'true'
-    upload-artifact: 'true'
 
 - run: echo "Version: ${{ steps.version.outputs.version }}"
 ```
@@ -43,8 +39,6 @@ Calculate semantic version using GitVersion and optionally update package.json.
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
 | `config-file` | Path to GitVersion config | No | `GitVersion.yml` |
-| `update-package-json` | Update package.json version | No | `true` |
-| `upload-artifact` | Upload package.json as artifact | No | `true` |
 
 | Output | Description |
 |--------|-------------|
@@ -55,6 +49,23 @@ Calculate semantic version using GitVersion and optionally update package.json.
 | `prerelease` | Pre-release tag |
 | `branch` | Branch name |
 | `sha` | Commit SHA |
+
+---
+
+### update-package-json
+
+Update version field in package.json.
+
+```yaml
+- uses: w7k-io/w7k-io-gh/update-package-json@main
+  with:
+    version: ${{ steps.version.outputs.version }}
+```
+
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `version` | Version to set | Yes | - |
+| `working-directory` | Directory containing package.json | No | `.` |
 
 ---
 

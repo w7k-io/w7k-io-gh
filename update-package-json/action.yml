@@ -1,0 +1,25 @@
+name: 'Update package.json version'
+description: 'Update version field in package.json'
+
+inputs:
+  version:
+    description: 'Version to set in package.json'
+    required: true
+  working-directory:
+    description: 'Directory containing package.json'
+    required: false
+    default: '.'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Update package.json version
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        if [ ! -f "package.json" ]; then
+          echo "Error: package.json not found in ${{ inputs.working-directory }}"
+          exit 1
+        fi
+        npm version ${{ inputs.version }} --no-git-tag-version --allow-same-version
+        echo "package.json updated to version ${{ inputs.version }}"
