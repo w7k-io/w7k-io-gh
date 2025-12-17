@@ -69,6 +69,23 @@ Update version field in package.json.
 
 ---
 
+### update-pom-version
+
+Update version field in pom.xml (Maven projects).
+
+```yaml
+- uses: w7k-io/w7k-io-gh/update-pom-version@main
+  with:
+    version: ${{ steps.version.outputs.version }}
+```
+
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `version` | Version to set | Yes | - |
+| `working-directory` | Directory containing pom.xml | No | `.` |
+
+---
+
 ### setup-node-npm
 
 Setup Node.js and set `NPM_GITHUB_TOKEN` env var for private registry authentication.
