@@ -1,11 +1,19 @@
 name: 'GitVersion'
-description: 'Calculate semantic version using GitVersion'
+description: 'Calculate semantic version using GitVersion with built-in config'
 
 inputs:
-  config-file:
-    description: 'Path to GitVersion config file'
+  mode:
+    description: 'GitVersion mode: deployment (ContinuousDeployment) or delivery (ContinuousDelivery with GitHubFlow)'
     required: false
-    default: 'GitVersion.yml'
+    default: 'deployment'
+  next-version:
+    description: 'Next version baseline (e.g., 1.0.0). Omit to let GitVersion calculate automatically.'
+    required: false
+    default: ''
+  config-file:
+    description: 'Path to a custom GitVersion config file. If set, mode and next-version are ignored.'
+    required: false
+    default: ''
 
 outputs:
   version:
@@ -33,6 +41,42 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Generate GitVersion config
+      id: config
+      shell: bash
+      run: |
+        CONFIG_FILE="${{ inputs.config-file }}"
+
+        if [ -n "$CONFIG_FILE" ] && [ -f "$CONFIG_FILE" ]; then
+          echo "Using custom config: $CONFIG_FILE"
+          echo "config-path=$CONFIG_FILE" >> "$GITHUB_OUTPUT"
+        else
+          # Generate config from inputs
+          GENERATED="/tmp/GitVersion.yml"
+          MODE="${{ inputs.mode }}"
+          NEXT_VERSION="${{ inputs.next-version }}"
+
+          if [ "$MODE" == "delivery" ]; then
+            cat > "$GENERATED" <<YAML
+        workflow: GitHubFlow/v1
+        branches:
+          main:
+            mode: ContinuousDelivery
+            label: ''
+        YAML
+          else
+            echo "mode: ContinuousDeployment" > "$GENERATED"
+          fi
+
+          if [ -n "$NEXT_VERSION" ]; then
+            echo "next-version: $NEXT_VERSION" >> "$GENERATED"
+          fi
+
+          echo "Generated GitVersion config:"
+          cat "$GENERATED"
+          echo "config-path=$GENERATED" >> "$GITHUB_OUTPUT"
+        fi
+
     - name: Install GitVersion
       uses: gittools/actions/gitversion/setup@v4.1.0
       with:
@@ -43,7 +87,7 @@ runs:
       uses: gittools/actions/gitversion/execute@v4.1.0
       with:
         useConfigFile: true
-        configFilePath: ${{ inputs.config-file }}
+        configFilePath: ${{ steps.config.outputs.config-path }}
 
     - name: Summary
       shell: bash

@@ -1,0 +1,183 @@
+name: 'GitHub Release'
+description: 'Create a GitHub release with structured release notes (Features/Fixes/Others)'
+
+inputs:
+  version:
+    description: 'Version to release (e.g., 1.2.3)'
+    required: true
+  token:
+    description: 'GitHub token with push and release permissions'
+    required: true
+  assets:
+    description: 'Glob pattern for release assets (e.g., "dist/*.zip"). Leave empty for no assets.'
+    required: false
+    default: ''
+  release-prefix:
+    description: 'Prefix for the release name (e.g., "Juni" → "Juni v1.2.3")'
+    required: false
+    default: ''
+  bump-version:
+    description: 'Whether to bump version in package.json/pom.xml before releasing'
+    required: false
+    default: 'true'
+  bump-files:
+    description: 'Files to bump: auto, package.json, pom.xml, or both'
+    required: false
+    default: 'auto'
+  bump-working-directory:
+    description: 'Directory containing version files for bump'
+    required: false
+    default: '.'
+
+outputs:
+  release-url:
+    description: 'URL of the created release'
+    value: ${{ steps.create-release.outputs.url }}
+  release-id:
+    description: 'ID of the created release'
+    value: ${{ steps.create-release.outputs.id }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Bump version
+      if: inputs.bump-version == 'true'
+      shell: bash
+      working-directory: ${{ inputs.bump-working-directory }}
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        VERSION="${{ inputs.version }}"
+        FILES="${{ inputs.bump-files }}"
+        UPDATED=""
+
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+        # Handle 'both' and 'auto' modes
+        if [ "$FILES" == "both" ]; then
+          FILES="package.json pom.xml"
+        elif [ "$FILES" == "auto" ]; then
+          FILES=""
+          [ -f "package.json" ] && FILES="package.json"
+          [ -f "pom.xml" ] && FILES="$FILES pom.xml"
+          FILES=$(echo $FILES | xargs)
+        fi
+
+        # Update package.json
+        if [[ "$FILES" == *"package.json"* ]] && [ -f "package.json" ]; then
+          npm version $VERSION --no-git-tag-version --allow-same-version
+          UPDATED="$UPDATED package.json"
+        fi
+
+        # Update pom.xml
+        if [[ "$FILES" == *"pom.xml"* ]] && [ -f "pom.xml" ]; then
+          mvn versions:set -DnewVersion=$VERSION -DgenerateBackupPoms=false -q
+          UPDATED="$UPDATED pom.xml"
+        fi
+
+        # Update pyproject.toml
+        if [ "$FILES" == "" ] && [ -f "pyproject.toml" ]; then
+          python3 -c "
+        import re, pathlib
+        p = pathlib.Path('pyproject.toml')
+        content = p.read_text()
+        content = re.sub(r'version\s*=\s*\"[^\"]*\"', 'version = \"$VERSION\"', content, count=1)
+        p.write_text(content)
+        "
+          UPDATED="$UPDATED pyproject.toml"
+        fi
+
+        if [ -n "$UPDATED" ]; then
+          git add -A
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: bump version to $VERSION [skip ci]"
+            git push
+            echo "Bumped version to $VERSION in:$UPDATED"
+          fi
+        fi
+
+    - name: Generate release notes
+      id: release-notes
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        VERSION="${{ inputs.version }}"
+        PREVIOUS_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]' | head -1)
+
+        if [ -z "$PREVIOUS_TAG" ]; then
+          RANGE="HEAD"
+        else
+          RANGE="${PREVIOUS_TAG}..HEAD"
+        fi
+
+        FEATURES=""
+        FIXES=""
+        OTHERS=""
+
+        while IFS= read -r line; do
+          [ -z "$line" ] && continue
+          HASH=$(echo "$line" | cut -d' ' -f1)
+          MSG=$(echo "$line" | cut -d' ' -f2-)
+
+          # Skip version bump and merge commits
+          echo "$MSG" | grep -qE '^chore: bump version' && continue
+
+          SHORT_HASH=$(echo "$HASH" | cut -c1-7)
+
+          if echo "$MSG" | grep -qiE '^(✨|feat)'; then
+            FEATURES="${FEATURES}\n- \`${SHORT_HASH}\` ${MSG}"
+          elif echo "$MSG" | grep -qiE '^(🐛|fix|🩹)'; then
+            FIXES="${FIXES}\n- \`${SHORT_HASH}\` ${MSG}"
+          else
+            OTHERS="${OTHERS}\n- \`${SHORT_HASH}\` ${MSG}"
+          fi
+        done <<< "$(git log --pretty=format:'%H %s' $RANGE --no-merges)"
+
+        REPO_NAME=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo "$GITHUB_REPOSITORY")
+
+        {
+          echo 'RELEASE_BODY<<RELEASE_EOF'
+          echo "${REPO_NAME} · Tag: v${VERSION} · Commit: $(git rev-parse --short HEAD)"
+          echo ""
+          echo "## ✨ New Features"
+          echo ""
+          if [ -n "$FEATURES" ]; then
+            echo -e "$FEATURES"
+          else
+            echo "_No new features._"
+          fi
+          echo ""
+          echo "## 🩹 Bug Fixes"
+          echo ""
+          if [ -n "$FIXES" ]; then
+            echo -e "$FIXES"
+          else
+            echo "_No bug fixes._"
+          fi
+          echo ""
+          echo "## 🔧 Other Changes"
+          echo ""
+          if [ -n "$OTHERS" ]; then
+            echo -e "$OTHERS"
+          else
+            echo "_No other changes._"
+          fi
+          echo 'RELEASE_EOF'
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Create GitHub Release
+      id: create-release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v${{ inputs.version }}
+        name: "${{ inputs.release-prefix && format('{0} v{1}', inputs.release-prefix, inputs.version) || format('v{0}', inputs.version) }}"
+        body: ${{ steps.release-notes.outputs.RELEASE_BODY }}
+        files: ${{ inputs.assets }}
+        draft: false
+        prerelease: false
+        make_latest: true
+        fail_on_unmatched_files: false
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
