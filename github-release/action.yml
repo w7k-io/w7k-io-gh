@@ -104,7 +104,10 @@ runs:
         GH_TOKEN: ${{ inputs.token }}
       run: |
         VERSION="${{ inputs.version }}"
-        PREVIOUS_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]' | head -1)
+        # `|| true`: on a fresh repo with no v* tag yet, grep matches nothing and
+        # exits 1; under `set -e -o pipefail` that non-zero pipeline in a var
+        # assignment would abort the step. Empty PREVIOUS_TAG -> RANGE="HEAD" below.
+        PREVIOUS_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]' | head -1 || true)
 
         if [ -z "$PREVIOUS_TAG" ]; then
           RANGE="HEAD"
