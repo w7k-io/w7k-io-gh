@@ -12,7 +12,9 @@ inputs:
   node-version:
     description: 'Node.js version to use'
     required: false
-    default: '22'
+    # MUST match the version the caller's CI jobs run on: a lockfile regenerated
+    # under a different npm major can resolve differently. Cf JUNI-1177.
+    default: '24'
 
 runs:
   using: 'composite'
@@ -25,7 +27,7 @@ runs:
         fetch-depth: 0
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
       with:
         node-version: ${{ inputs.node-version }}
 

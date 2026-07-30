@@ -21,7 +21,11 @@ Auto-sync `package-lock.json` when `package.json` is modified in a PR (npm only)
 |-------|-------------|----------|---------|
 | `token` | GitHub token with push permissions | Yes | - |
 | `working-directory` | Directory containing package.json | No | `.` |
-| `node-version` | Node.js version | No | `22` |
+| `node-version` | Node.js version | No | `24` |
+
+> Keep `node-version` identical to the one your CI jobs run on. A lockfile
+> regenerated under a different npm major can resolve dependencies differently
+> from the one your tests validated.
 
 ---
 
@@ -144,12 +148,20 @@ Requires a `.npmrc` in your repo with:
 - uses: w7k-io/w7k-io-gh/setup-node-npm@main
   with:
     npm-token: ${{ secrets.NPM_GITHUB_TOKEN }}
+    # Optional — overrides the workspace default:
+    # node-version: '22'
 ```
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| `node-version` | Node.js version | No | `22` |
+| `node-version` | Node.js version | No | `24` |
 | `npm-token` | NPM token (sets `NPM_GITHUB_TOKEN` env var) | No | - |
+
+> The default tracks the **active Node LTS** for the whole workspace. Because
+> consumers reference this action as `@main`, changing it takes effect in every
+> repo immediately, with no PR in their own diff. A repo that needs to stay
+> behind — during a migration, or because its runtime image is not ready — must
+> pin `node-version:` explicitly on its side.
 
 | Output | Description |
 |--------|-------------|
