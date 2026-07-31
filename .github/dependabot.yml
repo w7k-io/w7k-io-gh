@@ -1,0 +1,21 @@
+version: 2
+updates:
+  # This repo had NO Dependabot coverage until 2026-07-31, while its composite
+  # actions drive the CI of every JS repo in the workspace. A stale action here
+  # is a stale action everywhere, and nothing was watching.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      # Patches and minors are grouped: low risk, mergeable as one batch.
+      # Majors deliberately stay OUT of the group so each one arrives as its
+      # own PR and is judged on its merits. Grouping everything produced PRs
+      # of 20+ packages where a single conflict blocked the whole batch —
+      # security patches included. Cf JUNI-1199.
+      actions-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
