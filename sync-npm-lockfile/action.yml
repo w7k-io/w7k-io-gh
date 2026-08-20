@@ -15,6 +15,13 @@ inputs:
     # MUST match the version the caller's CI jobs run on: a lockfile regenerated
     # under a different npm major can resolve differently. Cf JUNI-1177.
     default: '24'
+  npm-token:
+    description: >-
+      Token for a private npm registry, exported as NPM_GITHUB_TOKEN for the npm steps.
+      REQUIRED as soon as the project depends on a private package: `token` above only
+      authenticates git, so without this npm resolves an empty variable in .npmrc and
+      fails with `401 Unauthorized ... unauthenticated`. Cf JUNI-1285.
+    required: false
 
 runs:
   using: 'composite'
@@ -35,8 +42,14 @@ runs:
       id: check
       shell: bash
       working-directory: ${{ inputs.working-directory }}
+      # --ignore-scripts: this step only answers "is the lockfile in sync?", which never
+      # needs install scripts to run. Callers trigger this workflow on `pull_request_target`,
+      # so the PR's code runs alongside repository secrets — a `preinstall` script was free
+      # to read them. Callers should ALSO guard against fork PRs; this is defence in depth.
+      env:
+        NPM_GITHUB_TOKEN: ${{ inputs.npm-token }}
       run: |
-        if npm ci 2>/dev/null; then
+        if npm ci --ignore-scripts 2>/dev/null; then
           echo "needs_update=false" >> $GITHUB_OUTPUT
           echo "Lockfile is already in sync"
         else
@@ -48,6 +61,8 @@ runs:
       if: steps.check.outputs.needs_update == 'true'
       shell: bash
       working-directory: ${{ inputs.working-directory }}
+      env:
+        NPM_GITHUB_TOKEN: ${{ inputs.npm-token }}
       run: |
         rm -f package-lock.json
         npm install --package-lock-only --ignore-scripts
