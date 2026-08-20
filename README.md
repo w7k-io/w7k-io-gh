@@ -12,6 +12,8 @@ Auto-sync `package-lock.json` when `package.json` is modified in a PR (npm only)
 - uses: w7k-io/w7k-io-gh/sync-npm-lockfile@main
   with:
     token: ${{ secrets.NPM_GITHUB_TOKEN }}
+    # Required as soon as you depend on a private package:
+    npm-token: ${{ secrets.NPM_GITHUB_TOKEN }}
     # Optional:
     # working-directory: src/main/ui
     # node-version: '22'
@@ -19,13 +21,29 @@ Auto-sync `package-lock.json` when `package.json` is modified in a PR (npm only)
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| `token` | GitHub token with push permissions | Yes | - |
+| `token` | GitHub token with push permissions — **git only** | Yes | - |
+| `npm-token` | Token for a private npm registry, exported as `NPM_GITHUB_TOKEN` | No | - |
 | `working-directory` | Directory containing package.json | No | `.` |
 | `node-version` | Node.js version | No | `24` |
 
 > Keep `node-version` identical to the one your CI jobs run on. A lockfile
 > regenerated under a different npm major can resolve dependencies differently
 > from the one your tests validated.
+
+> ⚠️ **`token` authenticates git, never npm.** As soon as your project depends on a
+> private package, pass `npm-token` as well — otherwise npm resolves an empty variable
+> in `.npmrc` and fails with `401 Unauthorized ... unauthenticated: User cannot be
+> authenticated with the token provided`. The failure only shows up in CI: developer
+> machines already carry a token in their `~/.npmrc`. Cf. JUNI-1285.
+
+> 🔒 **Guard your workflow against fork PRs.** This action is meant to run on
+> `pull_request_target`, which executes the PR's code *with* repository secrets. It runs
+> npm with `--ignore-scripts` so a malicious `preinstall` cannot read them, but that is
+> defence in depth — add the guard on your side too:
+>
+> ```yaml
+> if: github.event.pull_request.head.repo.full_name == github.repository
+> ```
 
 ---
 
