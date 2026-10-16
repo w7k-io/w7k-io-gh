@@ -152,6 +152,36 @@ Update version in package.json and/or pom.xml, then commit and push.
 
 ---
 
+### astrolabe-release
+
+Declare a released version to the Astrolabe release manager, so the component's page shows what runs where. Call it once the release is done — in its own job, so re-running a failed declaration never re-runs the release.
+
+```yaml
+astrolabe:
+  needs: release
+  runs-on: ubuntu-latest
+  steps:
+    - uses: w7k-io/w7k-io-gh/astrolabe-release@main
+      with:
+        component: my-component            # metadata.name in catalog-info.yaml
+        version: ${{ needs.release.outputs.version }}
+        token: ${{ secrets.ASTROLABE_PIPELINE_TOKEN }}
+        # environment: production          # default
+```
+
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `component` | Catalog name of the component | Yes | - |
+| `version` | Version that was released | Yes | - |
+| `token` | Astrolabe pipeline token (Administration › Releases) | Yes | - |
+| `environment` | Environment the version landed in | No | `production` |
+| `deployment-url` | Link shown next to the version | No | _(this workflow run)_ |
+| `astrolabe-url` | Astrolabe base URL | No | `https://astrolabe.w7k.io` |
+
+A failed declaration fails the job with the cause in the annotation: missing secret, token refused, component unknown to the catalog, or a login page (Cloudflare Access) in front of Astrolabe.
+
+---
+
 ### setup-node-npm
 
 Setup Node.js and set `NPM_GITHUB_TOKEN` env var for private registry authentication.
