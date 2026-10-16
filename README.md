@@ -173,7 +173,7 @@ astrolabe:
 |-------|-------------|----------|---------|
 | `component` | Catalog name of the component | Yes | - |
 | `version` | Version that was released | Yes | - |
-| `token` | Astrolabe pipeline token (Administration › Releases) | Yes | - |
+| `token` | Astrolabe pipeline token (Administration › Plugins › Deployments › Configure) | Yes | - |
 | `environment` | Environment the version landed in | No | `production` |
 | `deployment-url` | Link shown next to the version | No | _(this workflow run)_ |
 | `astrolabe-url` | Astrolabe base URL | No | `https://astrolabe.w7k.io` |
