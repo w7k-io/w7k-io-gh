@@ -1,0 +1,68 @@
+name: 'Astrolabe Release'
+description: 'Declare a released version of a component to the Astrolabe release manager'
+
+inputs:
+  component:
+    description: 'Catalog name of the component (metadata.name in catalog-info.yaml)'
+    required: true
+  version:
+    description: 'Version that was released (e.g., 1.2.3)'
+    required: true
+  token:
+    description: 'Astrolabe pipeline token (Administration › Releases)'
+    required: true
+  environment:
+    description: 'Environment the version landed in'
+    required: false
+    default: 'production'
+  deployment-url:
+    description: 'Link shown next to the version in Astrolabe. Defaults to this workflow run.'
+    required: false
+    default: ''
+  astrolabe-url:
+    description: 'Base URL of the Astrolabe instance'
+    required: false
+    default: 'https://astrolabe.w7k.io'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Declare the release to Astrolabe
+      shell: bash
+      env:
+        COMPONENT: ${{ inputs.component }}
+        ENVIRONMENT: ${{ inputs.environment }}
+        VERSION: ${{ inputs.version }}
+        ASTROLABE_PIPELINE_TOKEN: ${{ inputs.token }}
+        ASTROLABE_URL: ${{ inputs.astrolabe-url }}
+        DEPLOYMENT_URL: ${{ inputs.deployment-url || format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id) }}
+      run: |
+        if [ -z "$ASTROLABE_PIPELINE_TOKEN" ]; then
+          echo "::error title=Astrolabe::No pipeline token. Add the ASTROLABE_PIPELINE_TOKEN secret to this repository (Astrolabe › Administration › Releases generates it)."
+          exit 1
+        fi
+
+        BODY=$(jq -n --arg version "$VERSION" --arg url "$DEPLOYMENT_URL" '{version: $version, deploymentUrl: $url}')
+        RESPONSE=$(mktemp)
+        STATUS=$(curl -sS -o "$RESPONSE" -w '%{http_code}' -X POST \
+          "$ASTROLABE_URL/api/release-manager/pipeline/projects/$COMPONENT/environments/$ENVIRONMENT" \
+          -H "Authorization: Bearer $ASTROLABE_PIPELINE_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d "$BODY")
+
+        case "$STATUS" in
+          2??)
+            echo "::notice title=Astrolabe::$COMPONENT $VERSION declared in $ENVIRONMENT" ;;
+          30?)
+            echo "::error title=Astrolabe::Redirected instead of reaching Astrolabe (HTTP $STATUS). A login page (Cloudflare Access…) sits in front of $ASTROLABE_URL: let /api/release-manager/pipeline/* through, the pipeline token guards it."
+            exit 1 ;;
+          401|403)
+            echo "::error title=Astrolabe::Astrolabe refused the pipeline token (HTTP $STATUS). It was revoked or regenerated: copy the current one from Administration › Releases into the ASTROLABE_PIPELINE_TOKEN secret."
+            exit 1 ;;
+          404)
+            echo "::error title=Astrolabe::Astrolabe does not know the component '$COMPONENT' (HTTP 404). Register its catalog-info.yaml in the catalog, or fix the component name."
+            exit 1 ;;
+          *)
+            echo "::error title=Astrolabe::Astrolabe answered HTTP $STATUS: $(head -c 300 "$RESPONSE")"
+            exit 1 ;;
+        esac
