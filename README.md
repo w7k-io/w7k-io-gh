@@ -16,7 +16,7 @@ Auto-sync `package-lock.json` when `package.json` is modified in a PR (npm only)
     npm-token: ${{ secrets.NPM_GITHUB_TOKEN }}
     # Optional:
     # working-directory: src/main/ui
-    # node-version: '22'
+    # node-version: '26'
 ```
 
 | Input | Description | Required | Default |
@@ -24,7 +24,7 @@ Auto-sync `package-lock.json` when `package.json` is modified in a PR (npm only)
 | `token` | GitHub token with push permissions — **git only** | Yes | - |
 | `npm-token` | Token for a private npm registry, exported as `NPM_GITHUB_TOKEN` | No | - |
 | `working-directory` | Directory containing package.json | No | `.` |
-| `node-version` | Node.js version | No | `24` |
+| `node-version` | Node.js version | No | `26` |
 
 > Keep `node-version` identical to the one your CI jobs run on. A lockfile
 > regenerated under a different npm major can resolve dependencies differently
@@ -197,12 +197,12 @@ Requires a `.npmrc` in your repo with:
   with:
     npm-token: ${{ secrets.NPM_GITHUB_TOKEN }}
     # Optional — overrides the workspace default:
-    # node-version: '22'
+    # node-version: '26'
 ```
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| `node-version` | Node.js version | No | `24` |
+| `node-version` | Node.js version | No | `26` |
 | `npm-token` | NPM token (sets `NPM_GITHUB_TOKEN` env var) | No | - |
 
 > The default tracks the **active Node LTS** for the whole workspace. Because
