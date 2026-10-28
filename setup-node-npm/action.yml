@@ -6,8 +6,8 @@ inputs:
     description: 'Node.js version to use'
     required: false
     # Workspace target: the active Node LTS. Callers override with `node-version:`
-    # when they need to stay behind during a migration. Cf JUNI-1177.
-    default: '24'
+    # when they need to stay behind during a migration. Cf JUNI-1177, JUNI-1202.
+    default: '26'
   npm-token:
     description: 'NPM token for private registry (set as NPM_GITHUB_TOKEN env var)'
     required: false
